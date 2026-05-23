@@ -140,6 +140,34 @@ MDT on Wind/
 
 ---
 
+## File Execution & Data Flow
+
+Below is the execution flow of the modules, showing how the data flows from raw variables to the dashboard:
+
+```mermaid
+flowchart TD
+    RawData[Raw CSV Dataset] -->|data_pipeline.py| Features[50 Engineered Features]
+    Features -->|pytorch_preprocessing.py| Dataset[PyTorch Sliding Window Dataset]
+    Dataset -->|train.py / retrain_improved.py| Models[PyTorch Neural Networks models.py]
+    Models -->|SmoothL1 Loss / AdamW| Weights[Saved Weights .pth]
+    Weights -->|reevaluate.py / evaluate.py| SingleDT[Single DT Predictions & Metrics]
+    SingleDT -->|fusion.py / DS.py| Fusion[MDT Fusion Methods 1 & 2]
+    Fusion -->|DS Evidence Theory| FusedResults[Fused Predictions combination_results.csv]
+    SingleDT & FusedResults -->|mdt_engine.py / app.py| FlaskApp[Flask Web Backend]
+    FlaskApp -->|templates/index.html| Dashboard[Interactive Web Dashboard]
+```
+
+### Module Pipeline Details:
+1. **`data_pipeline.py`**: Computes dynamic air density and power using the wind turbine power curve, handles features engineering (lags, profile, stats), and scales data.
+2. **`pytorch_preprocessing.py`**: Creates sliding time-series window datasets (sequence length 24).
+3. **`models.py`**: Defines the neural network architectures (LSTM, GRU, LSTMCNN, GRUCNN with Temporal Attention).
+4. **`train.py` & `retrain_improved.py`**: Runs training loops, implements Early Stopping, schedules LR, and saves model parameters in `results/models/`.
+5. **`evaluate.py` & `reevaluate.py`**: Generates normalized predictions, saves CSVs, and computes MAE, RMSE, NMAE, R², and filtered MAPE.
+6. **`fusion.py` & `DS.py`**: Implements single-index and multi-index fusion algorithms utilizing Dempster-Shafer theory for combining models.
+7. **`mdt_engine.py` & `app.py`**: Runs the Flask web application serving interactive visualizations from templates.
+
+---
+
 ## Key Features
 
 ✅ **Advanced Feature Engineering**: 50 features capturing thermodynamics, turbulence, power lags, and wind profile dynamics.  
