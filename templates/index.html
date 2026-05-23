@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDT Wind Power Forecasting Dashboard</title>
+    <meta name="description" content="Multi-Digital Twin Wind Power Forecasting Dashboard — Sabarmati Riverfront Off-Grid Turbine">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary:   #0a0e1a;
+            --bg-card:      rgba(255,255,255,0.04);
+            --bg-card-hover:rgba(255,255,255,0.07);
+            --border:       rgba(255,255,255,0.08);
+            --text-primary: #e8ecf4;
+            --text-muted:   #7a8599;
+            --accent-blue:  #45B7D1;
+            --accent-teal:  #4ECDC4;
+            --accent-red:   #FF6B6B;
+            --accent-green: #96CEB4;
+            --accent-gold:  #FFEAA7;
+            --gradient-1:   linear-gradient(135deg, #1a1f35 0%, #0a0e1a 100%);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 24px;
+            background: var(--gradient-1);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            margin-bottom: 24px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 20%, rgba(69,183,209,0.06) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(78,205,196,0.04) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+        .header p { color: var(--text-muted); margin-top: 8px; font-size: 0.9rem; position: relative; }
+        .header .specs {
+            display: inline-flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; justify-content: center;
+            position: relative;
+        }
+        .header .spec-tag {
+            background: rgba(69,183,209,0.1);
+            border: 1px solid rgba(69,183,209,0.2);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 0.78rem;
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+
+        .grid { display: grid; gap: 20px; }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+        .card:hover { background: var(--bg-card-hover); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .card h3 { font-size: 1rem; font-weight: 600; color: var(--accent-gold); margin-bottom: 16px; }
+
+        .metric-card {
+            text-align: center;
+            padding: 20px;
+        }
+        .metric-card .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        .metric-card .value { font-size: 1.8rem; font-weight: 800; margin-top: 6px; }
+        .metric-card .sub   { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+        .chart-container { position: relative; height: 320px; }
+        .chart-container.tall { height: 400px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th { padding: 10px 14px; text-align: left; color: var(--accent-blue); border-bottom: 2px solid rgba(69,183,209,0.2); font-weight: 600; }
+        td { padding: 8px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+        tr:hover td { color: var(--text-primary); background: rgba(255,255,255,0.02); }
+        .best-row td { color: var(--accent-teal) !important; font-weight: 600; }
+
+        .controls { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; margin-bottom: 20px; }
+        .control-group label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .control-group input[type=range] { width: 200px; accent-color: var(--accent-blue); }
+        .control-group .range-val { font-size: 0.85rem; color: var(--accent-blue); font-weight: 600; margin-left: 8px; }
+
+        #loading {
+            position: fixed; inset: 0; background: var(--bg-primary); display: flex;
+            align-items: center; justify-content: center; z-index: 999; transition: opacity 0.5s;
+        }
+        #loading .spinner {
+            width: 48px; height: 48px; border: 4px solid var(--border); border-top-color: var(--accent-blue);
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .section-title { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin: 32px 0 16px; padding-left: 12px; border-left: 3px solid var(--accent-blue); }
+
+        .footer { text-align: center; padding: 32px; color: var(--text-muted); font-size: 0.8rem; margin-top: 40px; }
+
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+            .header h1 { font-size: 1.4rem; }
+            .chart-container { height: 260px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+
+<header class="header">
+    <h1>🌬️ Multi-Digital Twin Wind Power Forecasting</h1>
+    <p>Sabarmati Riverfront Off-Grid Turbine &bull; SiteID: 36565 &bull; Lat 23.03°N, Lon 72.56°E &bull; 2014</p>
+    <div class="specs">
+        <span class="spec-tag">Rotor: 28 m</span>
+        <span class="spec-tag">Rated: 250 kW</span>
+        <span class="spec-tag">Hub: 80 m</span>
+        <span class="spec-tag">Test: {{ n_points }} samples</span>
+    </div>
+</header>
+
+<!-- Metric Cards -->
+<div id="metric-cards" class="grid grid-4" style="margin-bottom:24px;"></div>
+
+<!-- Controls -->
+<div class="controls card" style="padding:16px 24px;">
+    <div class="control-group">
+        <label>Day to show</label>
+        <input type="range" id="daySlider" min="0" max="35" value="0">
+        <span class="range-val" id="dayVal">Day 1</span>
+    </div>
+    <div class="control-group">
+        <label>Window size</label>
+        <input type="range" id="windowSlider" min="3" max="30" value="10">
+        <span class="range-val" id="windowVal">10</span>
+    </div>
+</div>
+
+<!-- 1-Day Forecast -->
+<h2 class="section-title">1-Day Forecast</h2>
+<div class="card">
+    <div class="chart-container tall"><canvas id="chartForecast"></canvas></div>
+</div>
+
+<!-- Full Test Set -->
+<h2 class="section-title">Full Test Set Overlay</h2>
+<div class="card">
+    <div class="chart-container tall"><canvas id="chartFullTest"></canvas></div>
+</div>
+
+<!-- Single DT Metrics -->
+<h2 class="section-title">Single Digital Twin Metrics</h2>
+<div class="grid grid-2">
+    <div class="card">
+        <h3>MAE &amp; RMSE Comparison</h3>
+        <div class="chart-container"><canvas id="chartMetrics"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>R² Score</h3>
+        <div class="chart-container"><canvas id="chartR2"></canvas></div>
+    </div>
+</div>
+
+<!-- Fusion Tables -->
+<h2 class="section-title">MDT Fusion — All Combinations</h2>
+<div class="grid grid-2">
+    <div class="card">
+        <h3>Method 1: Single Metric Preference</h3>
+        <div id="tableM1"></div>
+    </div>
+    <div class="card">
+        <h3>Method 2: DS Evidence Fusion</h3>
+        <div id="tableM2"></div>
+    </div>
+</div>
+
+<!-- Fusion Comparison Chart -->
+<h2 class="section-title">Best Results Comparison</h2>
+<div class="card">
+    <div class="chart-container"><canvas id="chartFusion"></canvas></div>
+</div>
+
+<footer class="footer">
+    Multi-Digital Twin Wind Power Forecasting &bull; BTP Project 2026 &bull; P = 0.5 &times; ρ &times; A &times; Cp &times; v³
+</footer>
+
+<script>
+const COLORS = { LSTM:'#FF6B6B', GRU:'#4ECDC4', LSTMCNN:'#45B7D1', GRUCNN:'#96CEB4' };
+const MODEL_NAMES = ['LSTM','GRU','LSTMCNN','GRUCNN'];
+let DATA = null, METRICS = null, COMBOS = null;
+let chartForecast, chartFullTest, chartMetrics, chartR2, chartFusion;
+
+Chart.defaults.color = '#7a8599';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+Chart.defaults.font.family = "'Inter', sans-serif";
+
+async function fetchAll() {
+    const [dataR, metricsR, combosR] = await Promise.all([
+        fetch('/api/data'),
+        fetch('/api/metrics'),
+        fetch('/api/combinations'),
+    ]);
+    DATA = await dataR.json();
+    METRICS = await metricsR.json();
+    COMBOS = await combosR.json();
+}
+
+function renderMetricCards() {
+    const best = MODEL_NAMES.reduce((a,b) => METRICS[a].mae < METRICS[b].mae ? a : b);
+    const m = METRICS[best];
+    document.getElementById('metric-cards').innerHTML = [
+        card('Best Model', best, COLORS[best]),
+        card('MAE', m.mae.toFixed(4)+' kW', '#4ECDC4'),
+        card('RMSE', m.rmse.toFixed(4)+' kW', '#FF6B6B'),
+        card('R²', m.r2.toFixed(4), '#96CEB4'),
+    ].join('');
+    function card(label, value, color) {
+        return `<div class="card metric-card" style="border-color:${color}22;">
+            <div class="label">${label}</div>
+            <div class="value" style="color:${color}">${value}</div>
+        </div>`;
+    }
+}
+
+function renderForecast(day) {
+    const start = day * 24;
+    const end = Math.min(start + 24, DATA.actual.length);
+    const labels = Array.from({length:end-start}, (_,i) => i);
+    const datasets = [{
+        label: 'Actual', data: DATA.actual.slice(start, end),
+        borderColor: '#FFEAA7', backgroundColor: 'rgba(255,234,167,0.1)',
+        borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#FFEAA7', tension: 0.3, fill: true, order: 0,
+    }];
+    for (const name of MODEL_NAMES) {
+        datasets.push({
+            label: name, data: DATA.twins[name].slice(start, end),
+            borderColor: COLORS[name], borderWidth: 1.8, borderDash: [6,3],
+            pointRadius: 0, tension: 0.3, order: 1,
+        });
+    }
+    if (chartForecast) chartForecast.destroy();
+    chartForecast = new Chart(document.getElementById('chartForecast'), {
+        type: 'line', data: { labels, datasets },
+        options: { responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{ position:'top', labels:{ usePointStyle:true, padding:16 } } },
+            scales:{ x:{ title:{ display:true, text:'Hour' } }, y:{ title:{ display:true, text:'Wind Power (kW)' } } },
+        }
+    });
+}
+
+function renderFullTest() {
+    const n = Math.min(200, DATA.actual.length);
+    const labels = Array.from({length:n}, (_,i) => i);
+    const datasets = [{
+        label:'Actual', data: DATA.actual.slice(0,n),
+        borderColor:'#FFEAA7', borderWidth:1.5, pointRadius:0, tension:0.2, order:0,
+    }];
+    for (const name of MODEL_NAMES) {
+        datasets.push({
+            label:name, data: DATA.twins[name].slice(0,n),
+            borderColor: COLORS[name], borderWidth:1, pointRadius:0, tension:0.2, order:1,
+        });
+    }
+    if (chartFullTest) chartFullTest.destroy();
+    chartFullTest = new Chart(document.getElementById('chartFullTest'), {
+        type:'line', data:{labels, datasets},
+        options:{ responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{ position:'top', labels:{ usePointStyle:true, padding:16 } } },
+            scales:{ x:{ title:{ display:true, text:'Test Sample Index' } }, y:{ title:{ display:true, text:'Wind Power (kW)' } } },
+        }
+    });
+}
+
+function renderMetricsCharts() {
+    const maeVals = MODEL_NAMES.map(n => METRICS[n].mae);
+    const rmseVals = MODEL_NAMES.map(n => METRICS[n].rmse);
+    const r2Vals = MODEL_NAMES.map(n => METRICS[n].r2);
+    const bgColors = MODEL_NAMES.map(n => COLORS[n]);
+
+    if (chartMetrics) chartMetrics.destroy();
+    chartMetrics = new Chart(document.getElementById('chartMetrics'), {
+        type:'bar', data:{ labels: MODEL_NAMES, datasets:[
+            { label:'MAE', data: maeVals, backgroundColor: bgColors.map(c=>c+'CC'), borderRadius:6 },
+            { label:'RMSE', data: rmseVals, backgroundColor: bgColors.map(c=>c+'66'), borderRadius:6 },
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ usePointStyle:true } } } }
+    });
+
+    if (chartR2) chartR2.destroy();
+    chartR2 = new Chart(document.getElementById('chartR2'), {
+        type:'bar', data:{ labels: MODEL_NAMES, datasets:[
+            { label:'R²', data: r2Vals, backgroundColor: bgColors.map(c=>c+'CC'), borderRadius:6 },
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false,
+            scales:{ y:{ min: Math.min(...r2Vals) - 0.05, max: 1.0 } },
+            plugins:{ legend:{ display:false } }
+        }
+    });
+}
+
+function renderComboTables() {
+    for (const [method, divId] of [['method1','tableM1'],['method2','tableM2']]) {
+        let html = '<table><thead><tr><th>Combination</th><th>MAE</th><th>RMSE</th><th>R²</th></tr></thead><tbody>';
+        let bestMAE = Infinity, bestIdx = -1, idx = 0;
+        const allRows = [];
+        for (const group of ['2-DT','3-DT','4-DT']) {
+            const rows = (COMBOS[group] && COMBOS[group][method]) || [];
+            for (const r of rows) {
+                allRows.push(r);
+                if (r.mae < bestMAE) { bestMAE = r.mae; bestIdx = idx; }
+                idx++;
+            }
+        }
+        allRows.forEach((r, i) => {
+            const cls = i === bestIdx ? ' class="best-row"' : '';
+            html += `<tr${cls}><td>${r.combo}</td><td>${r.mae.toFixed(4)}</td><td>${r.rmse.toFixed(4)}</td><td>${r.r2.toFixed(4)}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById(divId).innerHTML = html;
+    }
+}
+
+function renderFusionComparison() {
+    // Best single
+    const bestSingle = MODEL_NAMES.reduce((a,b) => METRICS[a].mae < METRICS[b].mae ? a : b);
+    const s = METRICS[bestSingle];
+    // Best M1
+    let bestM1 = null;
+    for (const g of ['2-DT','3-DT','4-DT']) {
+        for (const r of (COMBOS[g]?.method1 || [])) {
+            if (!bestM1 || r.mae < bestM1.mae) bestM1 = r;
+        }
+    }
+    // Best M2
+    let bestM2 = null;
+    for (const g of ['2-DT','3-DT','4-DT']) {
+        for (const r of (COMBOS[g]?.method2 || [])) {
+            if (!bestM2 || r.mae < bestM2.mae) bestM2 = r;
+        }
+    }
+
+    const labels = [`Single (${bestSingle})`, `M1 (${bestM1?.combo||'?'})`, `M2 (${bestM2?.combo||'?'})`];
+    const maeData = [s.mae, bestM1?.mae||0, bestM2?.mae||0];
+    const rmseData = [s.rmse, bestM1?.rmse||0, bestM2?.rmse||0];
+    const colors = ['#96CEB4','#E74C3C','#3498DB'];
+
+    if (chartFusion) chartFusion.destroy();
+    chartFusion = new Chart(document.getElementById('chartFusion'), {
+        type:'bar', data:{ labels, datasets:[
+            { label:'MAE', data:maeData, backgroundColor: colors.map(c=>c+'CC'), borderRadius:8 },
+            { label:'RMSE', data:rmseData, backgroundColor: colors.map(c=>c+'55'), borderRadius:8 },
+        ]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ usePointStyle:true } } } }
+    });
+}
+
+// ── Init ──
+(async () => {
+    await fetchAll();
+    renderMetricCards();
+    renderForecast(0);
+    renderFullTest();
+    renderMetricsCharts();
+    renderComboTables();
+    renderFusionComparison();
+
+    document.getElementById('loading').style.opacity = '0';
+    setTimeout(() => document.getElementById('loading').style.display = 'none', 500);
+
+    document.getElementById('daySlider').max = Math.floor(DATA.actual.length / 24) - 1;
+    document.getElementById('daySlider').addEventListener('input', e => {
+        const d = parseInt(e.target.value);
+        document.getElementById('dayVal').textContent = `Day ${d+1}`;
+        renderForecast(d);
+    });
+    document.getElementById('windowSlider').addEventListener('input', e => {
+        document.getElementById('windowVal').textContent = e.target.value;
+    });
+})();
+</script>
+</body>
+</html>

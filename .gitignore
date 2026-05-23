@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+.ipynb_checkpoints/
+.env
+.DS_Store
+*.csv
+*.pth
+*.save
+results/predictions/
+results/models/
+results/plots/
+*.png
+*.pdf
