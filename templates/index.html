@@ -82,6 +82,7 @@
         .grid { display: grid; gap: 20px; }
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+        .grid-5 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
         .card {
             background: var(--bg-card);
@@ -142,17 +143,17 @@
 
 <header class="header">
     <h1>🌬️ Multi-Digital Twin Wind Power Forecasting</h1>
-    <p>Sabarmati Riverfront Off-Grid Turbine &bull; SiteID: 36565 &bull; Lat 23.03°N, Lon 72.56°E &bull; 2014</p>
+    <p>NREL 5-MW Baseline Wind Turbine &bull; SiteID: 36565 &bull; Lat 23.03°N, Lon 72.56°E &bull; 2014</p>
     <div class="specs">
-        <span class="spec-tag">Rotor: 28 m</span>
-        <span class="spec-tag">Rated: 250 kW</span>
-        <span class="spec-tag">Hub: 80 m</span>
+        <span class="spec-tag">Rotor: 126 m</span>
+        <span class="spec-tag">Rated: 5 MW</span>
+        <span class="spec-tag">Hub: 90 m</span>
         <span class="spec-tag">Test: {{ n_points }} samples</span>
     </div>
 </header>
 
 <!-- Metric Cards -->
-<div id="metric-cards" class="grid grid-4" style="margin-bottom:24px;"></div>
+<div id="metric-cards" class="grid grid-5" style="margin-bottom:24px;"></div>
 
 <!-- Controls -->
 <div class="controls card" style="padding:16px 24px;">
@@ -242,8 +243,9 @@ function renderMetricCards() {
     const m = METRICS[best];
     document.getElementById('metric-cards').innerHTML = [
         card('Best Model', best, COLORS[best]),
-        card('MAE', m.mae.toFixed(4)+' kW', '#4ECDC4'),
-        card('RMSE', m.rmse.toFixed(4)+' kW', '#FF6B6B'),
+        card('MAE', m.mae.toFixed(4), '#4ECDC4'),
+        card('RMSE', m.rmse.toFixed(4), '#FF6B6B'),
+        card('MAPE', m.mape.toFixed(2)+'%', '#FFA500'),
         card('R²', m.r2.toFixed(4), '#96CEB4'),
     ].join('');
     function card(label, value, color) {
@@ -258,14 +260,16 @@ function renderForecast(day) {
     const start = day * 24;
     const end = Math.min(start + 24, DATA.actual.length);
     const labels = Array.from({length:end-start}, (_,i) => i);
+    const SCALE = 100.0;
+    const toPct = v => v * SCALE;
     const datasets = [{
-        label: 'Actual', data: DATA.actual.slice(start, end),
+        label: 'Actual', data: DATA.actual.slice(start, end).map(v => toPct(v)),
         borderColor: '#FFEAA7', backgroundColor: 'rgba(255,234,167,0.1)',
         borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#FFEAA7', tension: 0.3, fill: true, order: 0,
     }];
     for (const name of MODEL_NAMES) {
         datasets.push({
-            label: name, data: DATA.twins[name].slice(start, end),
+            label: name, data: DATA.twins[name].slice(start, end).map(v => toPct(v)),
             borderColor: COLORS[name], borderWidth: 1.8, borderDash: [6,3],
             pointRadius: 0, tension: 0.3, order: 1,
         });
@@ -275,21 +279,23 @@ function renderForecast(day) {
         type: 'line', data: { labels, datasets },
         options: { responsive:true, maintainAspectRatio:false,
             plugins:{ legend:{ position:'top', labels:{ usePointStyle:true, padding:16 } } },
-            scales:{ x:{ title:{ display:true, text:'Hour' } }, y:{ title:{ display:true, text:'Wind Power (kW)' } } },
+            scales:{ x:{ title:{ display:true, text:'Hour' } }, y:{ title:{ display:true, text:'Wind Power (% Capacity)' } } },
         }
     });
 }
 
 function renderFullTest() {
-    const n = Math.min(200, DATA.actual.length);
+    const n = DATA.actual.length;
     const labels = Array.from({length:n}, (_,i) => i);
+    const SCALE = 100.0;
+    const toPct = v => v * SCALE;
     const datasets = [{
-        label:'Actual', data: DATA.actual.slice(0,n),
+        label:'Actual', data: DATA.actual.slice(0,n).map(v => toPct(v)),
         borderColor:'#FFEAA7', borderWidth:1.5, pointRadius:0, tension:0.2, order:0,
     }];
     for (const name of MODEL_NAMES) {
         datasets.push({
-            label:name, data: DATA.twins[name].slice(0,n),
+            label:name, data: DATA.twins[name].slice(0,n).map(v => toPct(v)),
             borderColor: COLORS[name], borderWidth:1, pointRadius:0, tension:0.2, order:1,
         });
     }
@@ -298,7 +304,7 @@ function renderFullTest() {
         type:'line', data:{labels, datasets},
         options:{ responsive:true, maintainAspectRatio:false,
             plugins:{ legend:{ position:'top', labels:{ usePointStyle:true, padding:16 } } },
-            scales:{ x:{ title:{ display:true, text:'Test Sample Index' } }, y:{ title:{ display:true, text:'Wind Power (kW)' } } },
+            scales:{ x:{ title:{ display:true, text:'Test Sample Index' } }, y:{ title:{ display:true, text:'Wind Power (% Capacity)' } } },
         }
     });
 }
@@ -332,7 +338,7 @@ function renderMetricsCharts() {
 
 function renderComboTables() {
     for (const [method, divId] of [['method1','tableM1'],['method2','tableM2']]) {
-        let html = '<table><thead><tr><th>Combination</th><th>MAE</th><th>RMSE</th><th>R²</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>Combination</th><th>MAE</th><th>RMSE</th><th>MAPE</th><th>R²</th></tr></thead><tbody>';
         let bestMAE = Infinity, bestIdx = -1, idx = 0;
         const allRows = [];
         for (const group of ['2-DT','3-DT','4-DT']) {
@@ -345,7 +351,7 @@ function renderComboTables() {
         }
         allRows.forEach((r, i) => {
             const cls = i === bestIdx ? ' class="best-row"' : '';
-            html += `<tr${cls}><td>${r.combo}</td><td>${r.mae.toFixed(4)}</td><td>${r.rmse.toFixed(4)}</td><td>${r.r2.toFixed(4)}</td></tr>`;
+            html += `<tr${cls}><td>${r.combo}</td><td>${r.mae.toFixed(4)}</td><td>${r.rmse.toFixed(4)}</td><td>${r.mape ? r.mape.toFixed(2) : '0.00'}%</td><td>${r.r2.toFixed(4)}</td></tr>`;
         });
         html += '</tbody></table>';
         document.getElementById(divId).innerHTML = html;

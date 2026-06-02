@@ -52,5 +52,5 @@
     "wp_lag_3"
   ],
   "target_col": "wind_power",
-  "window_size": 10
+  "window_size": 24
 }

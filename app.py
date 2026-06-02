@@ -41,8 +41,8 @@ def load_indian_twin_data():
     print(f"[app] Loaded {len(twins)} twin prediction files from {PRED_DIR}/")
     for name, df in twins.items():
         print(f"  {name}: {len(df)} predictions  "
-              f"pred_range=[{df['predicted'].min():.3f}, {df['predicted'].max():.3f}] MW  "
-              f"actual_range=[{df['actual'].min():.3f}, {df['actual'].max():.3f}] MW")
+              f"pred_range=[{df['predicted'].min():.3f}, {df['predicted'].max():.3f}] (normalized)  "
+              f"actual_range=[{df['actual'].min():.3f}, {df['actual'].max():.3f}] (normalized)")
     return twins
 
 
@@ -68,7 +68,7 @@ def combinations():
         g = df[df["group"] == group]
         result[group] = {}
         for method in g["method"].unique():
-            rows = g[g["method"] == method][["combo","mae","rmse","r2"]].to_dict("records")
+            rows = g[g["method"] == method][["combo","mae","rmse","mape","r2"]].to_dict("records")
             result[group][method] = rows
     return jsonify(result)
 

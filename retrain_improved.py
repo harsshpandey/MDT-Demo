@@ -20,9 +20,9 @@ CSV_PATH    = r'36565_23.03_72.56_2014_cc6ea7f2b4966ba2f914d889439754cc.csv'
 RESULTS     = 'results'
 WINDOW_SIZE = 24
 BATCH_SIZE  = 32
-LR          = 0.0005
-EPOCHS      = 500
-PATIENCE    = 50
+LR          = 0.0003
+EPOCHS      = 800
+PATIENCE    = 80
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 np.random.seed(42)

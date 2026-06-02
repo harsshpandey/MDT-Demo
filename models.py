@@ -1,11 +1,11 @@
 """
-Deep Learning Models for Wind Power Forecasting (V2 — High Accuracy)
-=====================================================================
-Maximum capacity models targeting MAE < 2, MAPE < 10%:
-  1. LSTM     — hidden=128, layers=3, dropout=0.15
-  2. GRU      — hidden=128, layers=3, dropout=0.15
-  3. LSTMCNN  — LSTM(128) + Conv1D(64→32→16) + Attention Pool + FC
-  4. GRUCNN   — GRU(128)  + Conv1D(64→32→16) + Attention Pool + FC
+Deep Learning Models for Wind Power Forecasting (V3 — NREL 5-MW)
+===================================================================
+High-capacity models targeting MAPE < 8%, R² > 0.96:
+  1. LSTM     — hidden=256, layers=4, dropout=0.12
+  2. GRU      — hidden=256, layers=4, dropout=0.12
+  3. LSTMCNN  — LSTM(256,2) + Conv1D(128→64→32) + Attention Pool + FC
+  4. GRUCNN   — GRU(256,2)  + Conv1D(128→64→32) + Attention Pool + FC
 """
 
 import torch
@@ -15,7 +15,7 @@ import torch.nn.functional as F
 
 class LSTMModel(nn.Module):
     """High-capacity LSTM with residual connection."""
-    def __init__(self, input_size, hidden_size=128, num_layers=3, dropout=0.15):
+    def __init__(self, input_size, hidden_size=256, num_layers=4, dropout=0.12):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -25,8 +25,8 @@ class LSTMModel(nn.Module):
             dropout=dropout if num_layers > 1 else 0,
         )
         self.bn = nn.BatchNorm1d(hidden_size)
-        self.fc1 = nn.Linear(hidden_size, 64)
-        self.fc2 = nn.Linear(64, 1)
+        self.fc1 = nn.Linear(hidden_size, 128)
+        self.fc2 = nn.Linear(128, 1)
         self.dropout = nn.Dropout(dropout)
         self.relu = nn.ReLU()
     
@@ -42,7 +42,7 @@ class LSTMModel(nn.Module):
 
 class GRUModel(nn.Module):
     """High-capacity GRU with residual connection."""
-    def __init__(self, input_size, hidden_size=128, num_layers=3, dropout=0.15):
+    def __init__(self, input_size, hidden_size=256, num_layers=4, dropout=0.12):
         super().__init__()
         self.gru = nn.GRU(
             input_size=input_size,
@@ -52,8 +52,8 @@ class GRUModel(nn.Module):
             dropout=dropout if num_layers > 1 else 0,
         )
         self.bn = nn.BatchNorm1d(hidden_size)
-        self.fc1 = nn.Linear(hidden_size, 64)
-        self.fc2 = nn.Linear(64, 1)
+        self.fc1 = nn.Linear(hidden_size, 128)
+        self.fc2 = nn.Linear(128, 1)
         self.dropout = nn.Dropout(dropout)
         self.relu = nn.ReLU()
     
@@ -83,7 +83,7 @@ class TemporalAttention(nn.Module):
 
 class LSTMCNNModel(nn.Module):
     """LSTM + CNN + Temporal Attention hybrid (high capacity)."""
-    def __init__(self, input_size, hidden_size=128, num_layers=2, window_size=24, dropout=0.15):
+    def __init__(self, input_size, hidden_size=256, num_layers=2, window_size=24, dropout=0.12):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -92,14 +92,16 @@ class LSTMCNNModel(nn.Module):
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0,
         )
-        self.conv1 = nn.Conv1d(hidden_size, 64, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm1d(64)
-        self.conv2 = nn.Conv1d(64, 32, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm1d(32)
+        self.conv1 = nn.Conv1d(hidden_size, 128, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm1d(128)
+        self.conv2 = nn.Conv1d(128, 64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm1d(64)
+        self.conv3 = nn.Conv1d(64, 32, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm1d(32)
         self.attn = TemporalAttention(32)
         self.dropout = nn.Dropout(dropout)
-        self.fc1 = nn.Linear(32, 16)
-        self.fc2 = nn.Linear(16, 1)
+        self.fc1 = nn.Linear(32, 32)
+        self.fc2 = nn.Linear(32, 1)
         self.relu = nn.ReLU()
     
     def forward(self, x):
@@ -107,6 +109,7 @@ class LSTMCNNModel(nn.Module):
         c = lstm_out.permute(0, 2, 1)
         c = self.relu(self.bn1(self.conv1(c)))
         c = self.relu(self.bn2(self.conv2(c)))
+        c = self.relu(self.bn3(self.conv3(c)))
         c = c.permute(0, 2, 1)              # (batch, seq, 32)
         c = self.attn(c)                     # (batch, 32)
         c = self.dropout(c)
@@ -117,7 +120,7 @@ class LSTMCNNModel(nn.Module):
 
 class GRUCNNModel(nn.Module):
     """GRU + CNN + Temporal Attention hybrid (high capacity)."""
-    def __init__(self, input_size, hidden_size=128, num_layers=2, window_size=24, dropout=0.15):
+    def __init__(self, input_size, hidden_size=256, num_layers=2, window_size=24, dropout=0.12):
         super().__init__()
         self.gru = nn.GRU(
             input_size=input_size,
@@ -126,14 +129,16 @@ class GRUCNNModel(nn.Module):
             batch_first=True,
             dropout=dropout if num_layers > 1 else 0,
         )
-        self.conv1 = nn.Conv1d(hidden_size, 64, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm1d(64)
-        self.conv2 = nn.Conv1d(64, 32, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm1d(32)
+        self.conv1 = nn.Conv1d(hidden_size, 128, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm1d(128)
+        self.conv2 = nn.Conv1d(128, 64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm1d(64)
+        self.conv3 = nn.Conv1d(64, 32, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm1d(32)
         self.attn = TemporalAttention(32)
         self.dropout = nn.Dropout(dropout)
-        self.fc1 = nn.Linear(32, 16)
-        self.fc2 = nn.Linear(16, 1)
+        self.fc1 = nn.Linear(32, 32)
+        self.fc2 = nn.Linear(32, 1)
         self.relu = nn.ReLU()
     
     def forward(self, x):
@@ -141,6 +146,7 @@ class GRUCNNModel(nn.Module):
         c = gru_out.permute(0, 2, 1)
         c = self.relu(self.bn1(self.conv1(c)))
         c = self.relu(self.bn2(self.conv2(c)))
+        c = self.relu(self.bn3(self.conv3(c)))
         c = c.permute(0, 2, 1)
         c = self.attn(c)
         c = self.dropout(c)

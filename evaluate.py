@@ -18,6 +18,9 @@ def compute_metrics(actual, predicted, print_results=False, model_name=""):
     Compute all evaluation metrics.
     Returns dict: {MAE, RMSE, NMAE, MAPE, R2}
     """
+    actual = np.array(actual, dtype=float) * 100.0
+    predicted = np.array(predicted, dtype=float) * 100.0
+
     mae = mean_absolute_error(actual, predicted)
     mse = mean_squared_error(actual, predicted)
     rmse = np.sqrt(mse)

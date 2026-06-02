@@ -11,3 +11,7 @@ results/models/
 results/plots/
 *.png
 *.pdf
+
+# Graphify output
+graphify-out/
+.agents/

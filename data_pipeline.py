@@ -17,28 +17,30 @@ import os
 
 
 # ─────────────────────── Constants ───────────────────────
-ROTOR_DIAMETER = 28       # m  (Sabarmati Riverfront off-grid turbine)
-ROTOR_AREA = np.pi * (ROTOR_DIAMETER / 2) ** 2   # m² (approx 615.75)
-CP = 0.40                 # Power coefficient (typical ~0.35-0.45)
+ROTOR_DIAMETER = 126.0    # m  (NREL 5-MW Baseline Wind Turbine)
+ROTOR_AREA = np.pi * (ROTOR_DIAMETER / 2) ** 2   # m² (approx 12468.98)
+CP = 0.45                 # Power coefficient (NREL 5-MW typical ~0.45)
 CUT_IN_SPEED = 3.0        # m/s
+RATED_SPEED = 11.4        # m/s (rated wind speed for NREL 5-MW)
 CUT_OUT_SPEED = 25.0      # m/s
-RATED_POWER = 250.0       # kW (Estimated rated power for 28m rotor)
+RATED_POWER = 5000.0      # kW (5 MW rated power)
 
 
 def compute_wind_power(wind_speed: np.ndarray, air_density: np.ndarray) -> np.ndarray:
     """
-    Compute wind power using the simplified cubic power curve:
-        P = 0.5 * ρ * A * Cp * v³
-    
-    Clamped between 0 and RATED_POWER.
-    Below cut-in speed → 0.  Above cut-out speed → 0.
+    Compute wind power using the NREL 5-MW power curve:
+        - Below cut-in (3 m/s): 0 kW
+        - Cut-in to rated (3-11.4 m/s): P = 0.5 * ρ * A * Cp * v³
+        - Rated to cut-out (11.4-25 m/s): 5000 kW (constant)
+        - Above cut-out (25 m/s): 0 kW
     """
     power = 0.5 * air_density * ROTOR_AREA * CP * (wind_speed ** 3)
     # Convert W to kW
     power = power / 1000.0
-    # Apply cut-in / cut-out / rated limits
+    # Apply power curve regions
     power = np.where(wind_speed < CUT_IN_SPEED, 0.0, power)
     power = np.where(wind_speed > CUT_OUT_SPEED, 0.0, power)
+    power = np.where((wind_speed >= RATED_SPEED) & (wind_speed <= CUT_OUT_SPEED), RATED_POWER, power)
     power = np.clip(power, 0.0, RATED_POWER)
     return power
 
@@ -171,6 +173,13 @@ def prepare_data(csv_path: str, save_dir: str = None):
     raw_df = load_indian_dataset(csv_path)
     df = engineer_features(raw_df)
     
+    # Save the full unnormalized engineered features dataset
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        unnorm_path = os.path.join(save_dir, 'engineered_features.csv')
+        df.to_csv(unnorm_path, index=False)
+        print(f"Full unnormalized engineered dataset saved to {unnorm_path}")
+    
     # Drop datetime for model input
     target_col = 'wind_power'
     feature_cols = [c for c in df.columns if c not in ['datetime', target_col]]
@@ -179,7 +188,6 @@ def prepare_data(csv_path: str, save_dir: str = None):
     n = len(df)
     n_train = int(n * 0.81)
     n_val = int(n * 0.09)
-    # n_test = n - n_train - n_val
     
     train_df = df.iloc[:n_train].copy()
     val_df = df.iloc[n_train:n_train + n_val].copy()
@@ -200,12 +208,20 @@ def prepare_data(csv_path: str, save_dir: str = None):
     val_df[cols_to_scale] = scaler.transform(val_df[cols_to_scale])
     test_df[cols_to_scale] = scaler.transform(test_df[cols_to_scale])
     
-    # Save scaler
+    # Save scaler and datasets
     if save_dir:
-        os.makedirs(save_dir, exist_ok=True)
         scaler_path = os.path.join(save_dir, 'scaler.save')
         joblib.dump(scaler, scaler_path)
         print(f"Scaler saved to {scaler_path}")
+        
+        train_path = os.path.join(save_dir, 'train_data.csv')
+        val_path = os.path.join(save_dir, 'val_data.csv')
+        test_path = os.path.join(save_dir, 'test_data.csv')
+        
+        train_df.to_csv(train_path, index=False)
+        val_df.to_csv(val_path, index=False)
+        test_df.to_csv(test_path, index=False)
+        print(f"Scaled splits saved to {save_dir}/ (train_data.csv, val_data.csv, test_data.csv)")
     
     return train_df, val_df, test_df, scaler, feature_cols, target_col
 
