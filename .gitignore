@@ -1,17 +1,30 @@
+# Virtual environments
 venv/
 __pycache__/
 .ipynb_checkpoints/
 .env
 .DS_Store
+
+# Data files
 *.csv
 *.pth
 *.save
-results/predictions/
-results/models/
-results/plots/
 *.png
-*.pdf
+
+# Logs
+*.log
+
+# Results directory (models, predictions, plots)
+results/
+predictions/
+
+# Templates
+templates/
 
 # Graphify output
 graphify-out/
 .agents/
+
+# Misc
+walkthrough.md
+scaler.save
