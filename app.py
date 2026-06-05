@@ -51,6 +51,49 @@ TWIN_NAMES = list(TWINS.keys())
 N_POINTS   = len(TWINS[TWIN_NAMES[0]])
 
 
+# ── Auto-regenerate combination_results.csv at startup ────────────────────────
+def regenerate_combination_results():
+    """Regenerate combination_results.csv from current predictions (merged from regen_csv.py)."""
+    import itertools
+    models = list(TWINS.keys())
+    results = []
+
+    for r in range(2, 5):
+        for combo in itertools.combinations(models, r):
+            group = f"{r}-DT"
+            combo_name = "&".join(combo)
+            sub_twins = {k: TWINS[k] for k in combo}
+
+            # Method 1
+            m1 = method1_single_metric(sub_twins, window=10)
+            metrics1 = m1["metrics"]
+            results.append({
+                "group": group, "method": "method1", "combo": combo_name,
+                "mae": metrics1["mae"], "rmse": metrics1["rmse"],
+                "mape": metrics1.get("mape", 0.0), "r2": metrics1["r2"]
+            })
+
+            # Method 2
+            m2 = method2_multimetric_ds(sub_twins, window=10, zeta=0.04)
+            metrics2 = m2["metrics"]
+            results.append({
+                "group": group, "method": "method2", "combo": combo_name,
+                "mae": metrics2["mae"], "rmse": metrics2["rmse"],
+                "mape": metrics2.get("mape", 0.0), "r2": metrics2["r2"]
+            })
+
+    import pandas as _pd
+    df = _pd.DataFrame(results)
+    df = df.sort_values(by=["method", "group", "combo"]).reset_index(drop=True)
+    csv_path = os.path.join(os.path.dirname(__file__), "combination_results.csv")
+    df.to_csv(csv_path, index=False)
+    print(f"[app] Regenerated combination_results.csv with {len(df)} rows.")
+
+
+regenerate_combination_results()
+
+
+
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/")

@@ -18,9 +18,6 @@ __pycache__/
 results/
 predictions/
 
-# Templates
-templates/
-
 # Graphify output
 graphify-out/
 .agents/
