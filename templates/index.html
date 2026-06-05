@@ -152,16 +152,18 @@
 
         /* ── Grid ── */
         .grid { display: grid; gap: 16px; }
+        .grid-6 { grid-template-columns: repeat(6, 1fr); }
         .grid-5 { grid-template-columns: repeat(5, 1fr); }
         .grid-2 { grid-template-columns: repeat(2, 1fr); }
         .grid-3 { grid-template-columns: repeat(3, 1fr); }
 
         @media (max-width: 1100px) {
+            .grid-6 { grid-template-columns: repeat(3, 1fr); }
             .grid-5 { grid-template-columns: repeat(3, 1fr); }
             .grid-3 { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 768px) {
-            .grid-5, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+            .grid-6, .grid-5, .grid-3, .grid-2 { grid-template-columns: 1fr; }
             .hero { padding: 28px 20px; }
             .hero h1 { font-size: 1.4rem; }
             .app-container { padding: 12px 14px 40px; }
@@ -323,7 +325,7 @@
     </header>
 
     <!-- ════ METRIC CARDS ════ -->
-    <div id="metric-cards" class="grid grid-5 animate-in delay-1"></div>
+    <div id="metric-cards" class="grid grid-6 animate-in delay-1"></div>
 
     <!-- ════ CONTROLS ════ -->
     <div class="card controls-bar animate-in delay-2" style="margin-top:20px;">
@@ -426,23 +428,43 @@ async function fetchAll() {
     MDT_M2 = await m2R.json();
 }
 
-function metricCard(label, value, color, cssClass, sub='') {
+function metricCard(label, value, color, cssClass, sub='', valSize='') {
+    const style = `color:${color};${valSize ? 'font-size:'+valSize+';' : ''}`;
     return `<div class="card metric-card ${cssClass}">
         <div class="metric-label">${label}</div>
-        <div class="metric-value" style="color:${color}">${value}</div>
+        <div class="metric-value" style="${style}">${value}</div>
         ${sub ? `<div class="metric-sub">${sub}</div>` : ''}
     </div>`;
 }
 
 function renderMetricCards() {
-    const best = MODEL_NAMES.reduce((a,b) => METRICS[a].mae < METRICS[b].mae ? a : b);
-    const m = METRICS[best];
+    const bestSingle = MODEL_NAMES.reduce((a,b) => METRICS[a].mae < METRICS[b].mae ? a : b);
+    let bestObj = { name: bestSingle, type: 'Best Single DT', metrics: METRICS[bestSingle], color: COLORS[bestSingle] };
+
+    for (const group of ['2-DT', '3-DT', '4-DT']) {
+        if (!COMBOS[group]) continue;
+        for (const method of ['method1', 'method2']) {
+            const arr = COMBOS[group][method] || [];
+            for (const r of arr) {
+                if (r.mae < bestObj.metrics.mae) {
+                    bestObj = { name: r.combo.replace(/&/g, ' & '), type: `MDT Fusion (${method === 'method1' ? 'M1' : 'M2'})`, metrics: r, color: 'var(--accent-cyan)' };
+                }
+            }
+        }
+    }
+
+    const m = bestObj.metrics;
+    let nameSize = '';
+    if (bestObj.name.length > 25) nameSize = '1.0rem';
+    else if (bestObj.name.length > 15) nameSize = '1.25rem';
+    
     document.getElementById('metric-cards').innerHTML = [
-        metricCard('Best Model', best, COLORS[best], 'cyan', 'Lowest MAE'),
-        metricCard('MAE', m.mae.toFixed(4), 'var(--accent-emerald)', 'emerald', 'Mean Abs Error'),
-        metricCard('RMSE', m.rmse.toFixed(4), 'var(--accent-rose)', 'rose', 'Root Mean Sq Error'),
-        metricCard('MAPE', m.mape.toFixed(2)+'%', 'var(--accent-amber)', 'amber', 'Mean Abs % Error'),
-        metricCard('R²', m.r2.toFixed(4), 'var(--accent-violet)', 'violet', 'Determination Coeff'),
+        metricCard('Overall Best', bestObj.name, bestObj.color, 'cyan', bestObj.type, nameSize),
+        metricCard('Best Single', bestSingle, COLORS[bestSingle], 'emerald', 'Lowest Single MAE'),
+        metricCard('Lowest MAE', m.mae.toFixed(4), 'var(--accent-emerald)', 'emerald', 'Mean Abs Error'),
+        metricCard('Lowest RMSE', m.rmse.toFixed(4), 'var(--accent-rose)', 'rose', 'Root Mean Sq Error'),
+        metricCard('Lowest MAPE', (m.mape ? m.mape.toFixed(2) : '--') + '%', 'var(--accent-amber)', 'amber', 'Mean Abs % Error'),
+        metricCard('Highest R²', m.r2.toFixed(4), 'var(--accent-violet)', 'violet', 'Determination Coeff'),
     ].join('');
 }
 
