@@ -14,9 +14,18 @@ __pycache__/
 # Logs
 *.log
 
-# Results directory (models, predictions, plots)
-results/
+# Results directory: skip generated CSVs / models / weights / predictions,
+# but keep markdown explanation files (eda_report.md, final_analysis.md,
+# mdt_methods_study.md, comparison.md, glossary.md) and the JSON sidecars
+# so reviewers can read the analysis without re-running the pipeline.
+results/**/*.csv
+results/**/*.pth
+results/**/*.save
+results/**/*.png
+results/**/*_scaled.csv
 predictions/
+predictions_min15/
+.venv/
 
 # Graphify output
 graphify-out/

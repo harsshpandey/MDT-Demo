@@ -1,0 +1,39 @@
+{
+  "LSTM": {
+    "name": "LSTM",
+    "n_features": 40,
+    "n_test": 853,
+    "best_val_loss": 0.002904883171140682,
+    "train_seconds": 23.308393001556396,
+    "epochs_completed": 40
+  },
+  "GRU": {
+    "name": "GRU",
+    "n_features": 31,
+    "n_test": 853,
+    "best_val_loss": 0.0014742642354879838,
+    "train_seconds": 74.97810816764832,
+    "epochs_completed": 51
+  },
+  "LSTMCNN": {
+    "name": "LSTMCNN",
+    "n_features": 34,
+    "n_test": 853,
+    "best_val_loss": 0.00272676236636471,
+    "train_seconds": 27.49996066093445,
+    "epochs_completed": 40
+  },
+  "GRUCNN": {
+    "name": "GRUCNN",
+    "n_features": 40,
+    "n_test": 853,
+    "best_val_loss": 0.001976061069096128,
+    "train_seconds": 59.823172092437744,
+    "epochs_completed": 36
+  },
+  "__meta__": {
+    "csv": "data/raw/36565_23.03_72.56_2014_cc6ea7f2b4966ba2f914d889439754cc.csv",
+    "resample_15min": false,
+    "predictions_dir": "predictions"
+  }
+}

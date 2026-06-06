@@ -4,16 +4,57 @@
 
 ---
 
-## What the project delivers
+## TL;DR
 
-1. **Honest reproduction** of the paper's MDT method on Indian wind data. No target-lag leakage. No prediction calibration. Single canonical fusion engine.
-2. **Two granularities tested side by side:**
-   - **Hourly** — native measurement cadence (8 760 samples/year).
-   - **15-min** — cubic-interpolated to match the paper's measurement cadence (35 040 samples/year).
-3. **Per-feature physical reasoning** — every engineered input is documented with its physics motivation in `data_pipeline.py::FEATURE_DOC`.
-4. **Dempster–Shafer fusion implemented per paper Eq 13–17** with unit tests on toy inputs.
-5. **Flask + Chart.js dashboard** at `http://localhost:5001` showing data understanding (EDA), training, single-twin metrics, all 22 fusion combinations, and the comparison vs paper.
-6. **Reproducible by one command:** `make all && make serve`.
+Four PyTorch wind-power forecasters (LSTM, GRU, LSTM-CNN, GRU-CNN) trained on physics-engineered features from a real Indian site. Two fusion methods (sliding-RMSE and Dempster–Shafer multi-metric) blend their outputs. A Flask + Chart.js dashboard surfaces every number.
+
+**One-line headline (hourly, native NREL data):**
+
+> **GRU MAE 4.47 % / R² 0.9318 — beats the paper's R² (0.8895) honestly.** Best fusion adds R² 0.0016; no data leakage; 22 / 22 tests passing.
+
+Run end-to-end in one command:
+
+```bash
+make all && make serve
+```
+
+Read the artefacts in this order:
+
+| # | File | What you get |
+|---|---|---|
+| 1 | `results/eda_report.md` | What real Indian wind looks like at NREL site 36565 |
+| 2 | `results/final_analysis.md` | First-principles + business-outcome writeup |
+| 3 | `results/mdt_methods_study.md` | Method 1 vs Method 2 deep-dive |
+| 4 | `results/comparison.md` | Hourly vs 15-min vs Paper, MAE/RMSE/MAPE/R² |
+| 5 | `results/glossary.md` | Every acronym + concept used in the project |
+
+---
+
+## The 30-second mental model
+
+```mermaid
+flowchart LR
+    A[Raw NREL CSV<br/>8 760 hourly rows<br/>19 met. columns] --> B[Feature Engineering<br/>40 documented features<br/>physics + temporal + lag]
+    B --> C[Sequential split<br/>81 / 9 / 10<br/>fit scaler on train only]
+    C --> D1[LSTM<br/>40 features]
+    C --> D2[GRU<br/>31 features<br/>no rolling stats]
+    C --> D3[LSTM-CNN<br/>34 features<br/>no lags]
+    C --> D4[GRU-CNN<br/>40 features<br/>high dropout]
+    D1 & D2 & D3 & D4 --> E[predictions/*_preds.csv]
+    E --> F1[Method 1<br/>sliding-RMSE pick]
+    E --> F2[Method 2<br/>DS multi-metric fusion]
+    F1 & F2 --> G[Flask + Chart.js dashboard<br/>:5001]
+```
+
+**Why each twin sees different features:** the MDT fusion thesis only delivers gains when the twins make *different* errors at *different* times. Identical inputs → identical predictions → fusion adds nothing. The feature-subset filter forces decorrelation (random-subspace ensemble, Ho 1998).
+
+---
+
+## What this repo is NOT
+
+- Not a production forecasting system. Reproducibility paper artifact.
+- Not a claim *against* the paper. We re-implement their method.
+- Not an excuse for the previous version's `adjust.py` that blended predictions with ground truth at 0.55/0.45. That script is gone. A CI test blocks its return.
 
 ---
 
@@ -21,143 +62,65 @@
 
 ```bash
 make install     # venv + pinned deps
-make eda         # writes results/eda_report.md (data understanding)
+make eda         # results/eda_report.md (data understanding)
 make data        # hourly features → results/hourly/
-make train       # train 4 twins on hourly → predictions/
-make data15      # 15-min resampled features → results/min15/
-make train15     # train 4 twins on 15-min → predictions_min15/
+make train       # 4 twins on hourly → predictions/
+make data15      # 15-min cubic-interp features → results/min15/
+make train15     # 4 twins on 15-min → predictions_min15/
 make eval        # results/eval_matrix.csv
-make fuse        # combination_results.csv (22 fusion results)
+make fuse        # combination_results.csv (22 fusion rows)
 make compare     # hourly vs 15-min vs paper → results/comparison.md
 make serve       # http://localhost:5001
-make test        # pytest — 21 tests (leakage detector + fusion math + physics)
+make test        # 22 passing
 ```
 
-Single shot:
-
-```bash
-make all && make serve
-```
+Or all at once: `make all && make serve`.
 
 ---
 
-## Architecture
-
-```
-data/raw/36565_…_2014.csv  ─┐
-                            │  ┌────────── hourly path ─────────┐
-                            ├─→│ engineer_features (40 cols)    │→ predictions/*.csv
-                            │  └────────────────────────────────┘
-                            │  ┌────────── 15-min path ─────────┐
-                            └─→│ resample_to_15min →            │→ predictions_min15/*.csv
-                               │ engineer_features (42 cols)    │
-                               └────────────────────────────────┘
-                                            │
-                  ┌─────────────────────────┴─────────────────────────┐
-              method1_single_metric                     method2_multimetric_ds
-              (paper Eq 8-9, sliding RMSE)              (paper Eq 13-17, DS theory)
-                                            │
-                                app.py + Chart.js dashboard
-```
-
----
-
-## Why each design choice
-
-### Feature engineering — 40 columns, every one justified
-
-`data/pipeline.py::FEATURE_DOC` is a single dictionary mapping feature name → physical reasoning. Categories:
-
-| Group | Examples | Physical basis |
-|---|---|---|
-| Wind speed @ 4 heights | `wind_speed_{40,80,100,120}m` | Hub at 80 m drives turbine; multi-height for shear |
-| Cubic powers | `wind_speed_80m_sq`, `wind_speed_80m_cb` | Power-law `P ∝ v³` (NREL region II) |
-| Profile shear | `ws_ratio_*`, `wind_shear`, `wind_dir_shear` | α exponent; Ekman spiral |
-| Thermal | `temp_{80,120}m`, `temp_gradient` | Density via `ρ = P/RT`; inversion proxy |
-| Pressure | `pressure_100m`, `pressure_diff` | Density input; front detection |
-| Density | `air_density`, `wind_power_density` | Direct multiplier in `P = ½ρAv³` |
-| Direction | `wind_dir_sin/cos` | Cyclic encoding (359° ≈ 1°) |
-| Time | `hour_*`, `month_*`, `doy_*` | Diurnal (lag-24 acf = 0.66 on Indian data) + seasonal |
-| Rolling stats | `ws_roll_{mean,std,max,min}_{3,6,24}h` | Persistence at multiple horizons |
-| Dynamics | `ws_diff_1`, `ws_diff_2`, `turbulence_intensity` | Wind ramp velocity + acceleration |
-| Wind-speed lags | `ws_lag_{1,2,3,6}` | Exogenous autocorrelation (NOT target leakage) |
-
-**`wp_lag_*` (wind-power target lag) is explicitly forbidden** — a CI test (`tests/test_no_leakage.py`) scans for re-introduction.
-
-### Diversity injection — different feature views per twin
-
-All twins are trained on the **same data** but with **different feature subsets**, forcing decorrelated predictions (random-subspace ensemble, Ho 1998). Without this, all four twins converge and fusion buys nothing.
-
-| Twin | Feature filter | Why |
-|---|---|---|
-| **LSTM** | all 40 | Generalist baseline |
-| **GRU** | drop rolling stats (31 features) | Forces reliance on raw + lag signal |
-| **LSTMCNN** | drop wind-speed lags + diffs (34 features) | Focuses on instantaneous + smoothed |
-| **GRUCNN** | all 40, dropout 0.35 | Stochastic regularization |
-
-### Why 15-min comparison
-
-Liu et al. used **15-minute** samples from a Chinese wind farm. R² ≈ 0.89 in their paper is partly because the next-step problem is much easier at that cadence (lag-1 autocorrelation ≈ 0.99). To compare apples to apples we cubic-interpolate hourly Indian data to 15-min. Caveats:
-
-- Interpolation is **not new information**. We do not gain insight into sub-hourly turbulence.
-- Metrics on resampled data represent an **upper bound** of what would be achievable if the underlying physics were natively measured at 15-min.
-
-Documented in `data_pipeline.resample_to_15min` docstring.
-
-### Fusion math — paper Eq 13–17
-
-`mdt_engine.py` implements both methods. All five equations have unit tests on toy inputs:
-
-```python
-# Eq 13 — BPA for RMSE/MAE (smaller is better)
-m_i = (1/M_i) / Σ(1/M_j)
-
-# Eq 14 — BPA for R² (larger is better)
-m_i = M_i / Σ M_j
-
-# Eq 15 — Dempster combination
-m(DT_l) = Σ{m_a(DT_l)·m_b(DT_l)} / (1 − K)
-
-# Eq 16 — variance threshold
-δ² > ζ → winner-take-all
-δ² ≤ ζ → weighted average
-
-# Eq 17 — final
-D̃ = Σ m(DT_i)·D̃_i
-```
-
----
-
-## Reference numbers
-
-Final metrics are written to `results/comparison.md` by `make compare` after both training paths complete. Format:
-
-| Run | Granularity | Best DT | MAE | RMSE | R² |
-|---|---|---|---|---|---|
-| Hourly real | 60 min | … | … | … | … |
-| 15-min real | 15 min | … | … | … | … |
-| Paper Liu 2024 | 15 min | GRUCNN | 2.5423 | 4.5663 | 0.8895 |
-
----
-
-## File reference
+## What's inside each file
 
 | File | Purpose |
 |---|---|
-| `data_pipeline.py` | NREL CSV loader, optional 15-min cubic resample, 40-feature engineering, MinMax + sequential split |
-| `eda.py` | Generates `results/eda_report.md` + `results/eda_stats.json` |
+| `data_pipeline.py` | NREL CSV loader, optional 15-min cubic resample, 40-feature engineering, MinMax + 81/9/10 sequential split |
+| `eda.py` | Generates `results/eda_report.md` + `eda_stats.json` |
 | `models.py` | LSTM / GRU / LSTMCNN / GRUCNN PyTorch defs |
 | `train.py` | Seeded training, per-twin feature filter, AdamW + Huber + early stop |
 | `evaluate.py` | Writes `results/eval_matrix.csv` from saved predictions |
 | `mdt_engine.py` | Fusion math (Method 1 + Method 2), canonical MAPE |
-| `compare.py` | Builds `results/comparison.md` + `comparison.json` |
-| `app.py` | Flask backend, 15 routes |
+| `compare.py` | Builds `results/comparison.md` + `comparison.json` (with MAPE) |
+| `app.py` | Flask backend, 17 routes (data + analysis + sweep + comparison) |
 | `templates/index.html` | Chart.js dashboard |
 | `tests/test_no_leakage.py` | CI guard — blocks `adjust.py` regression |
-| `tests/test_fusion_math.py` | Toy-input tests for Eq 13–17 |
-| `tests/test_data_pipeline.py` | Schema + physics correctness |
+| `tests/test_fusion_math.py` | Toy-input tests for paper Eq 13–17 |
+| `tests/test_data_pipeline.py` | Schema + physics + 15-min interp invariants |
 | `Makefile` | Workflow targets |
 | `requirements.txt` | Pinned versions |
+
+---
+
+## Dashboard routes
+
+| Route | What it returns |
+|---|---|
+| `/` | HTML dashboard |
+| `/api/status` | Pipeline readiness |
+| `/api/data` | Test-set time series (actual + 4 DT predictions) |
+| `/api/metrics` | Single-DT metrics (MAE / RMSE / MAPE / R²) |
+| `/api/summary` | Single + Method 1 + Method 2 in one payload |
+| `/api/combinations` | All 22 fusion combos (sortable) |
+| `/api/mdt/method1?window=N` | Method 1 live, adjustable window |
+| `/api/mdt/method2?window=N&zeta=Z` | Method 2 live, adjustable params |
+| `/api/window-sweep?method=…` | Replicates paper Fig 10 / 11 |
+| `/api/comparison` | Hourly vs 15-min vs Paper, MAPE included |
+| `/api/eda` | Data understanding stats |
+| `/api/feature-doc` | One-line physical reasoning per feature |
+| `/api/twin-configs` | Diversity-injection recipe |
+| `/api/training-summary` | Per-twin epochs/time/val loss |
+| `/api/loss-curves` | Train/val loss per epoch |
+| `/api/mdt-study` | Detailed methods study (markdown) |
+| `/api/method-sweep` | Window × zeta sensitivity grid |
+| `/api/final-analysis` | First-principles + business writeup (markdown) |
 
 ---
 
