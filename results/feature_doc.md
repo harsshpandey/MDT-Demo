@@ -1,0 +1,42 @@
+# Engineered features (with physical reasoning)
+
+- **wind_speed_40m** — Wind speed at 40 m. Lower-profile sample used for shear estimation.
+- **wind_speed_80m** — Hub-height wind speed (80 m). Primary driver of turbine power.
+- **wind_speed_100m** — Wind speed at 100 m. Upper-profile sample for shear estimation.
+- **wind_speed_120m** — Wind speed at 120 m. Topmost profile sample.
+- **wind_speed_80m_sq** — v80² ∝ dynamic pressure / kinetic energy term.
+- **wind_speed_80m_cb** — v80³. Power-curve region II is linear in this feature: handing the model the cubic relationship turns nonlinear regression into near-linear.
+- **ws_ratio_120_80** — v120/v80 ratio. >1 → unstable / strong shear; ≈1 → neutral mixing.
+- **ws_ratio_80_40** — v80/v40 ratio. Low-altitude shear, surface-roughness sensitive.
+- **wind_shear** — Power-law shear exponent α from v(z)∝z^α fit over 40–120 m. α≈0.1 open terrain, α≈0.4 stable/forested.
+- **temp_80m** — Hub-height temperature. Affects air density via ρ = P/(R·T).
+- **temp_120m** — Upper-level temperature. Difference with hub gives thermal stratification.
+- **temp_gradient** — T40 − T120. Positive → stable atmosphere, laminar flow; negative → inversion / turbulence.
+- **pressure_100m** — Absolute pressure at 100 m. Density driver; tracks weather systems.
+- **pressure_diff** — P40 − P100. Vertical pressure gradient — large values flag fronts / strong wind events.
+- **air_density** — ρ = P100/(R_dry·(T80+273.15)). Direct multiplier in the power equation; varies ~10% across seasons.
+- **wind_power_density** — Physical proxy: 0.5·ρ·v80³ (W/m²). Same form as the target but without the curve clipping — useful inductive bias.
+- **wind_dir_sin** — sin(direction_80m). Cyclic-safe encoding; combined with cos preserves topology.
+- **wind_dir_cos** — cos(direction_80m). Captures yaw / wake-loss directional effects.
+- **wind_dir_shear** — Ekman-spiral proxy: angular difference (120m − 40m) wrapped to [−180°, 180°]. Surface friction rotates wind; magnitude correlates with atmospheric stability + planetary boundary layer depth.
+- **hour_sin** — sin(2π·hour/24). Captures diurnal cycle of land-sea breeze and thermal-driven wind.
+- **hour_cos** — cos(2π·hour/24).
+- **month_sin** — sin(2π·month/12). Captures annual seasonal cycle (monsoon vs winter regimes).
+- **month_cos** — cos(2π·month/12).
+- **doy_sin** — sin(2π·doy/365). Sub-monthly seasonal resolution.
+- **doy_cos** — cos(2π·doy/365).
+- **ws_roll_mean_3h** — 3-hour rolling mean of v80. Short-term trend; smooths gusts.
+- **ws_roll_std_3h** — 3-hour rolling std of v80. Short-window turbulence indicator.
+- **ws_roll_max_3h** — 3-hour rolling max of v80. Detects recent gust peaks.
+- **ws_roll_min_3h** — 3-hour rolling min of v80. Lulls / wake events.
+- **ws_roll_mean_6h** — 6-hour rolling mean — sub-diurnal trend.
+- **ws_roll_std_6h** — 6-hour rolling std — used as turbulence-intensity denominator.
+- **ws_roll_mean_24h** — 24-hour rolling mean — daily-average wind regime.
+- **ws_roll_std_24h** — 24-hour rolling std — day-scale variability.
+- **turbulence_intensity** — σ_6h / μ_6h. Standard atmospheric turbulence-intensity index (IEC 61400-1).
+- **ws_diff_1** — Δv80 between consecutive hours. Wind ramp velocity.
+- **ws_diff_2** — Δ²v80. Wind ramp acceleration; flags onset of frontal passage.
+- **ws_lag_1** — v80(t−1). Persistence cue. Distinct from target lag.
+- **ws_lag_2** — v80(t−2). 2-hour persistence.
+- **ws_lag_3** — v80(t−3). 3-hour persistence.
+- **ws_lag_6** — v80(t−6). Quarter-day cycle persistence.

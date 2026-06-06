@@ -1,0 +1,34 @@
+{
+  "LSTM": {
+    "name": "LSTM",
+    "n_features": 40,
+    "n_test": 853,
+    "best_val_loss": 0.002904883171140682,
+    "train_seconds": 23.744614839553833,
+    "epochs_completed": 40
+  },
+  "GRU": {
+    "name": "GRU",
+    "n_features": 31,
+    "n_test": 853,
+    "best_val_loss": 0.0014742642354879838,
+    "train_seconds": 76.8976640701294,
+    "epochs_completed": 51
+  },
+  "LSTMCNN": {
+    "name": "LSTMCNN",
+    "n_features": 34,
+    "n_test": 853,
+    "best_val_loss": 0.00272676236636471,
+    "train_seconds": 27.94323706626892,
+    "epochs_completed": 40
+  },
+  "GRUCNN": {
+    "name": "GRUCNN",
+    "n_features": 40,
+    "n_test": 853,
+    "best_val_loss": 0.001976061069096128,
+    "train_seconds": 60.874234199523926,
+    "epochs_completed": 36
+  }
+}

@@ -228,6 +228,15 @@ def training_summary():
         return jsonify(json.load(fh))
 
 
+@app.route("/api/glossary")
+def glossary():
+    """Project glossary — every acronym + concept used."""
+    path = os.path.join(REPO_DIR, "results", "glossary.md")
+    if not os.path.exists(path):
+        return jsonify({"error": "glossary.md not generated yet."}), 404
+    return app.response_class(open(path).read(), mimetype="text/markdown")
+
+
 @app.route("/api/mdt-study")
 def mdt_study():
     """Return the detailed MDT methods study (markdown)."""
