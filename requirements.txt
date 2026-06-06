@@ -1,0 +1,18 @@
+# Pinned for reproducibility — Indian dataset MDT replication
+# Tested with Python 3.14 on macOS arm64 (MPS) + Linux x86_64 (CUDA)
+
+# Core numerics
+numpy==2.2.6
+pandas==2.2.3
+scipy==1.14.1
+scikit-learn==1.5.2
+joblib==1.4.2
+
+# Deep learning
+torch==2.12.0
+
+# Web dashboard
+Flask==3.1.3
+
+# Test framework
+pytest==8.3.4
