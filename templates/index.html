@@ -308,6 +308,14 @@
 
 <div class="app-container">
 
+    {% if pipeline_error %}
+    <div style="background:#3b1414;border:1px solid #6b2222;color:#ffd7d7;padding:1.2rem 1.6rem;border-radius:12px;margin:1.5rem auto;max-width:900px;font-family:'JetBrains Mono',monospace;font-size:0.85rem;line-height:1.5;">
+        <div style="font-weight:600;color:#ff8e8e;margin-bottom:0.6rem;font-size:0.95rem;">⚠ Pipeline not initialized</div>
+        <pre style="margin:0;white-space:pre-wrap;color:#ffd7d7;">{{ pipeline_error }}</pre>
+        <div style="margin-top:0.8rem;color:#bba;">Dashboard will populate once predictions exist.</div>
+    </div>
+    {% endif %}
+
     <!-- ════ HERO ════ -->
     <header class="hero animate-in">
         <div class="hero-badge"><span class="dot"></span> Live Dashboard</div>
@@ -316,16 +324,70 @@
             Multi-Digital Twin Wind Power Prediction &bull; SiteID: 36565 &bull; Ahmedabad, Gujarat (23.03°N, 72.56°E) &bull; 2014
         </p>
         <div class="hero-tags">
-            <span class="hero-tag">🌬️ Rotor: 28 m</span>
-            <span class="hero-tag">⚡ Rated: 82 kW</span>
+            <span class="hero-tag">🌬️ Rotor: 126 m (NREL 5-MW)</span>
+            <span class="hero-tag">⚡ Rated: 5 000 kW</span>
             <span class="hero-tag">📐 Hub: 80 m</span>
-            <span class="hero-tag">📊 Test: {{ n_points }} samples</span>
+            <span class="hero-tag">📊 Test: {{ n_points }} hourly samples</span>
             <span class="hero-tag">🧠 4 Digital Twins</span>
         </div>
     </header>
 
     <!-- ════ METRIC CARDS ════ -->
     <div id="metric-cards" class="grid grid-6 animate-in delay-1"></div>
+
+    <!-- ════ COMPARISON PANEL — Hourly vs 15-min vs Paper ════ -->
+    <div class="card animate-in delay-2" style="margin-top:20px;">
+        <h2 style="margin:0 0 1rem 0;">Hourly vs 15-min vs Liu et al. 2024</h2>
+        <div id="comparison-table" style="overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:0.85rem;color:#cdd6f4;">
+            Loading…
+        </div>
+        <p style="margin-top:1rem;color:#a6adc8;font-size:0.85rem;">
+            <strong>Hourly</strong> = native NREL measurement.
+            <strong>15-min</strong> = cubic-interpolated upper bound (not native sensors).
+            <strong>Paper</strong> = Liu et al. 2024, 129 MW Chinese farm @ 15-min native.
+        </p>
+    </div>
+    <script>
+    (async () => {
+        try {
+            const r = await fetch('/api/comparison');
+            if (!r.ok) { document.getElementById('comparison-table').textContent =
+                'Run `make compare` to populate.'; return; }
+            const d = await r.json();
+            let html = '<table style="width:100%;border-collapse:collapse;">';
+            html += '<thead><tr style="text-align:left;border-bottom:1px solid #45475a;">' +
+                    '<th style="padding:6px 12px;">Run</th><th style="padding:6px 12px;">Granularity</th>' +
+                    '<th style="padding:6px 12px;">Best DT</th><th style="padding:6px 12px;">MAE</th>' +
+                    '<th style="padding:6px 12px;">RMSE</th><th style="padding:6px 12px;">MAPE %</th>' +
+                    '<th style="padding:6px 12px;">R²</th></tr></thead><tbody>';
+            for (const run of d.runs) {
+                const b = run.best_single;
+                const mape = (b.mape !== undefined && b.mape !== null) ? b.mape.toFixed(3) : '—';
+                html += `<tr style="border-bottom:1px solid #313244;">
+                    <td style="padding:6px 12px;color:#a6e3a1;">${run.label}</td>
+                    <td style="padding:6px 12px;">${run.granularity_min} min</td>
+                    <td style="padding:6px 12px;">${run.best_single_name}</td>
+                    <td style="padding:6px 12px;">${b.mae.toFixed(3)}</td>
+                    <td style="padding:6px 12px;">${b.rmse.toFixed(3)}</td>
+                    <td style="padding:6px 12px;">${mape}</td>
+                    <td style="padding:6px 12px;">${b.r2.toFixed(4)}</td></tr>`;
+            }
+            const p = d.paper.single_best;
+            const pmape = (p.MAPE !== null && p.MAPE !== undefined) ? p.MAPE.toFixed(3) : '— (n/a)';
+            html += `<tr><td style="padding:6px 12px;color:#f9e2af;">Liu et al. 2024</td>
+                    <td style="padding:6px 12px;">${d.paper.granularity_min} min</td>
+                    <td style="padding:6px 12px;">${p.name}</td>
+                    <td style="padding:6px 12px;">${p.MAE.toFixed(3)}</td>
+                    <td style="padding:6px 12px;">${p.RMSE.toFixed(3)}</td>
+                    <td style="padding:6px 12px;color:#a6adc8;">${pmape}</td>
+                    <td style="padding:6px 12px;">${p.R2.toFixed(4)}</td></tr>`;
+            html += '</tbody></table>';
+            document.getElementById('comparison-table').innerHTML = html;
+        } catch(e) {
+            document.getElementById('comparison-table').textContent = 'Error: ' + e.message;
+        }
+    })();
+    </script>
 
     <!-- ════ CONTROLS ════ -->
     <div class="card controls-bar animate-in delay-2" style="margin-top:20px;">

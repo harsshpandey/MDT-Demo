@@ -68,37 +68,53 @@ def compute_errors(predicted, actual):
     return dict(mae=mae, mse=mse, rmse=rmse, r2=r2, mape=mape)
 
 
-from sklearn.preprocessing import MinMaxScaler
+_EPS = 1e-9
+
 
 def _bpa_rmse_mae(values):
-    """Basic Probability Assignment for RMSE/MAE using MinMaxScaler (smaller is better)."""
-    values = np.array(values, dtype=float).reshape(-1, 1)
-    if values.max() == values.min():
-        return list(np.ones(len(values)) / len(values))
-    
-    # Smaller is better, so we invert by negating before scaling
-    scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(-values).flatten()
-    scaled += 1e-6
-    
-    if scaled.sum() == 0:
-        return list(np.ones(len(values)) / len(values))
-    return list(scaled / scaled.sum())
+    """
+    Basic Probability Assignment for RMSE / MAE — paper Eq (13).
+
+    Smaller metric → higher mass. Formula:
+        Y_i = 1 / M_i
+        m_i = Y_i / Σ Y_j
+
+    Adds _EPS to denominator to guard against M_i = 0 (rare, but possible
+    when a twin matches actual perfectly inside the sliding window).
+    """
+    arr = np.asarray(values, dtype=float)
+    n = len(arr)
+    if n == 0:
+        return []
+    # Guard zeros
+    inv = 1.0 / (np.abs(arr) + _EPS)
+    s = inv.sum()
+    if s <= 0:
+        return [1.0 / n] * n
+    return list(inv / s)
 
 
 def _bpa_r2(values):
-    """Basic Probability Assignment for R² using MinMaxScaler (larger is better)."""
-    values = np.array(values, dtype=float).reshape(-1, 1)
-    if values.max() == values.min():
-        return list(np.ones(len(values)) / len(values))
-        
-    scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(values).flatten()
-    scaled += 1e-6
-    
-    if scaled.sum() == 0:
-        return list(np.ones(len(values)) / len(values))
-    return list(scaled / scaled.sum())
+    """
+    Basic Probability Assignment for R² — paper Eq (14).
+
+    Larger metric → higher mass. Formula:
+        m_i = M_i / Σ M_j
+
+    Paper formula assumes M_i ≥ 0. R² can be negative on noisy windows
+    (worse than predicting the mean). We shift by min(0, min(R²)) so the
+    smallest value maps to 0, preserving order, then renormalize.
+    """
+    arr = np.asarray(values, dtype=float)
+    n = len(arr)
+    if n == 0:
+        return []
+    # Shift so min ≥ 0 (handles negative R²)
+    shifted = arr - min(0.0, arr.min())
+    s = shifted.sum()
+    if s <= _EPS:
+        return [1.0 / n] * n
+    return list(shifted / s)
 
 
 def _ds_combine_two(m1, m2):

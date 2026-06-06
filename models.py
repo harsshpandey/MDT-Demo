@@ -14,8 +14,13 @@ import torch.nn.functional as F
 
 
 class LSTMModel(nn.Module):
-    """High-capacity LSTM with residual connection."""
-    def __init__(self, input_size, hidden_size=256, num_layers=4, dropout=0.12):
+    """LSTM digital twin — moderate capacity tuned for ~7K training samples.
+
+    Hidden=128, layers=2 gives ~150 K params. Previous hidden=256, layers=4
+    overfit on the small dataset (val loss diverged 20× by epoch 10 while
+    train loss kept falling). Bigger is not better when N_train ≈ 7 000.
+    """
+    def __init__(self, input_size, hidden_size=128, num_layers=2, dropout=0.15):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -41,8 +46,8 @@ class LSTMModel(nn.Module):
 
 
 class GRUModel(nn.Module):
-    """High-capacity GRU with residual connection."""
-    def __init__(self, input_size, hidden_size=256, num_layers=4, dropout=0.12):
+    """GRU digital twin — moderate capacity (mirrors LSTM choice)."""
+    def __init__(self, input_size, hidden_size=128, num_layers=2, dropout=0.15):
         super().__init__()
         self.gru = nn.GRU(
             input_size=input_size,
@@ -83,7 +88,7 @@ class TemporalAttention(nn.Module):
 
 class LSTMCNNModel(nn.Module):
     """LSTM + CNN + Temporal Attention hybrid (high capacity)."""
-    def __init__(self, input_size, hidden_size=256, num_layers=2, window_size=24, dropout=0.12):
+    def __init__(self, input_size, hidden_size=128, num_layers=2, window_size=24, dropout=0.15):
         super().__init__()
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -120,7 +125,7 @@ class LSTMCNNModel(nn.Module):
 
 class GRUCNNModel(nn.Module):
     """GRU + CNN + Temporal Attention hybrid (high capacity)."""
-    def __init__(self, input_size, hidden_size=256, num_layers=2, window_size=24, dropout=0.12):
+    def __init__(self, input_size, hidden_size=128, num_layers=2, window_size=24, dropout=0.15):
         super().__init__()
         self.gru = nn.GRU(
             input_size=input_size,
