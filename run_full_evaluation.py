@@ -2,7 +2,7 @@
 ═══════════════════════════════════════════════════════════════
   MDT Wind Power Forecasting — Full Evaluation & Visualization
 ═══════════════════════════════════════════════════════════════
-  Sabarmati Riverfront Off-Grid Turbine (28 m rotor, 250 kW)
+  Ahmedabad Off-Grid Turbine (28 m rotor, 250 kW)
 
   This script:
     1. Loads the raw dataset and re-creates feature-engineered data
@@ -84,7 +84,7 @@ ax.axhline(y=RATED_POWER, color='orange', ls='--', alpha=.7,
 ax.fill_between(speeds, power, alpha=.15, color='blue')
 ax.set_xlabel('Wind Speed (m/s)', fontsize=12)
 ax.set_ylabel('Power (kW)', fontsize=12)
-ax.set_title(f'Sabarmati Turbine Power Curve  (D={ROTOR_DIAMETER}m, '
+ax.set_title(f'Turbine Power Curve  (D={ROTOR_DIAMETER}m, '
              f'A={ROTOR_AREA:.1f}m², Cp={CP})', fontsize=13, fontweight='bold')
 ax.legend(fontsize=11); ax.grid(True, alpha=.3)
 plt.tight_layout()
@@ -104,7 +104,7 @@ axes[0].grid(True, alpha=.3)
 axes[1].plot(feat_df['datetime'], feat_df['wind_power'],
              color='#E74C3C', lw=.5, alpha=.7)
 axes[1].set_ylabel('Wind Power (Normalized)', fontsize=12)
-axes[1].set_title(f'Computed Wind Power  (Sabarmati 28 m, {RATED_POWER:.0f} kW rated)',
+axes[1].set_title(f'Computed Wind Power  (28 m, {RATED_POWER:.0f} kW rated)',
                   fontsize=14, fontweight='bold')
 axes[1].grid(True, alpha=.3)
 
@@ -120,12 +120,17 @@ plt.close()
 print("  ✅ Saved: timeseries.png")
 
 # ── PLOT 3: Correlation Heatmap ──
-fig, ax = plt.subplots(figsize=(14, 10))
-corr = feat_df.drop(columns=['datetime']).corr()
-mask = np.triu(np.ones_like(corr, dtype=bool))
-sns.heatmap(corr, mask=mask, annot=True, fmt='.2f', cmap='RdBu_r', center=0,
-            ax=ax, square=True, linewidths=.5, annot_kws={'size': 7})
-ax.set_title('Feature Correlation Matrix', fontsize=14, fontweight='bold')
+fig, ax = plt.subplots(figsize=(12, 10))
+corr_all = feat_df.drop(columns=['datetime']).corr()
+# Get top 18 features most correlated (absolute value) with wind_power (excluding wind_power itself)
+top_corr_feats = corr_all['wind_power'].abs().sort_values(ascending=False).index[1:19].tolist()
+selected_cols = ['wind_power'] + top_corr_feats
+corr_sub = feat_df[selected_cols].corr()
+
+mask = np.triu(np.ones_like(corr_sub, dtype=bool))
+sns.heatmap(corr_sub, mask=mask, annot=True, fmt='.2f', cmap='RdBu_r', center=0,
+            ax=ax, square=True, linewidths=.5, annot_kws={'size': 9, 'weight': 'bold'})
+ax.set_title('Feature Correlation Matrix (Top 18 Features vs Wind Power)', fontsize=14, fontweight='bold')
 plt.tight_layout()
 plt.savefig(os.path.join(PLOT_DIR, 'correlation.png'), dpi=150, bbox_inches='tight')
 plt.close()

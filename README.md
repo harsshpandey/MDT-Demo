@@ -1,5 +1,5 @@
 # Multi-Digital Twin (MDT) Wind Power Forecasting
-*Sabarmati Riverfront Off-Grid Wind Turbine Analysis & Deep Learning Forecasting*
+*Off-Grid Wind Turbine Analysis & Deep Learning Forecasting*
 
 ## Overview
 
@@ -15,7 +15,7 @@ This project implements **wind power forecasting** using multi-digital twin (MDT
 
 | Property | Value |
 |----------|-------|
-| **Location** | Sabarmati Riverfront, Ahmedabad (SiteID: 36565), Lat: 23.03°N, Lon: 72.56°E |
+| **Location** | Ahmedabad (SiteID: 36565), Lat: 23.03°N, Lon: 72.56°E |
 | **Year** | 2014 |
 | **Records** | 8,760 hourly observations |
 | **Wind Heights** | 40m, 80m, 100m, 120m |
